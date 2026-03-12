@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lender Tracker 5000</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- favicon stored in static folder -->
+    <link rel="icon" href="/static/ref.png">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Sticky Header -->
+    <header class="sticky-header">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <!-- Title and Subtitle -->
+            <div class="mb-4">
+                <h1 class="text-3xl text-white mb-2"><strong>Lender Tracker 5000</strong></h1>
+                <p class="text-blue-50">Track shared items (cables, devices, lab kits) and who borrowed them.</p>
+            </div>
+
+            <!-- Search Bar and Buttons -->
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <!-- Search Bar -->
+                <div class="relative flex-1 w-full">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input 
+                        type="text" 
+                        id="searchInput"
+                        placeholder="Search items, categories, or borrowers..."
+                        class="w-full pl-10 pr-4 py-2.5 border border-blue-400 bg-white/95 rounded-lg focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent placeholder-gray-500"
+                    >
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex gap-2">
+                    <button onclick="showAddItemModal()" class="flex items-center gap-2 px-4 py-2.5 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add Item
+                    </button>
+                    <button onclick="showCheckoutModal()" class="flex items-center gap-2 px-4 py-2.5 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 14 6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2Z"></path>
+                        </svg>
+                        Check Out Item
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="max-w-6xl mx-auto px-4 py-8 mt-4">
+        <!-- Currently Checked Out -->
+        <div class="mb-8">
+            <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-4 rounded-t-lg">
+                <h2 class="text-xl">Currently Checked Out</h2>
+                <p class="text-sm text-orange-50 mt-1">
+                    <span id="checkedOutCount">0</span> items loaned
+                </p>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-b-lg p-6">
+                <div id="checkedOutList">
+                    <!-- Checked out items will be rendered here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Inventory -->
+        <div>
+            <h2 class="text-xl mb-4">Available Inventory</h2>
+            <div id="inventoryList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Inventory items will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl">Add New Item</h2>
+                <button onclick="closeAddItemModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="addItemForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm mb-1">Item Name</label>
+                    <input type="text" id="itemName" name="name" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., HDMI Cable">
+                </div>
+                
+                <div>
+                    <label class="block text-sm mb-1">Category</label>
+                    <input type="text" id="itemCategory" name="category" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., Cables, Devices, Lab Kits">
+                </div>
+                
+                <div>
+                    <label class="block text-sm mb-1">Quantity</label>
+                    <input type="number" id="itemQuantity" name="quantity" min="1" value="1" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                        Add Item
+                    </button>
+                    <button type="button" onclick="closeAddItemModal()" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl">Check Out Item</h2>
+                <button onclick="closeCheckoutModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="checkoutForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm mb-1">Select Item</label>
+                    <select id="checkoutItemSelect" name="item_id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Choose an item...</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm mb-1">Borrower Name</label>
+                    <input type="text" id="borrowerName" name="borrower" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., John Doe">
+                </div>
+                
+                <div>
+                    <label class="block text-sm mb-1">Date</label>
+                    <input type="date" id="checkoutDate" name="date" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                        Check Out
+                    </button>
+                    <button type="button" onclick="closeCheckoutModal()" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL - adjust if needed
+        const API_BASE = '/api';
+
+        // Data storage
+        let items = [];
+        let checkouts = [];
+
+        // Constants
+        // when available quantity is <= LOW_STOCK_PERCENT of total quantity
+        const LOW_STOCK_PERCENT = 0.33;
+        // right now, overdue items are set to a week, but this could be made user-configurable in the future
+        const OVERDUE_DAYS = 7;
+
+        // API Functions
+        async function fetchItems() {
+            try {
+                const response = await fetch(`${API_BASE}/items`);
+                if (!response.ok) throw new Error('Failed to fetch items');
+                items = await response.json();
+                return items;
+            } catch (error) {
+                console.error('Error fetching items:', error);
+                alert('Failed to load items. Please refresh the page.');
+                return [];
+            }
+        }
+
+        async function addItem(itemData) {
+            try {
+                const response = await fetch(`${API_BASE}/items`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(itemData)
+                });
+                if (!response.ok) throw new Error('Failed to add item');
+                const newItem = await response.json();
+                return newItem;
+            } catch (error) {
+                console.error('Error adding item:', error);
+                alert('Failed to add item. Please try again.');
+                return null;
+            }
+        }
+
+        async function fetchCheckouts() {
+            try {
+                const response = await fetch(`${API_BASE}/checkedout`);
+                if (!response.ok) throw new Error('Failed to fetch checkouts');
+                checkouts = await response.json();
+                return checkouts;
+            } catch (error) {
+                console.error('Error fetching checkouts:', error);
+                alert('Failed to load checkouts. Please refresh the page.');
+                return [];
+            }
+        }
+
+        async function addCheckout(checkoutData) {
+            try {
+                const response = await fetch(`${API_BASE}/checkouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(checkoutData)
+                });
+                if (!response.ok) throw new Error('Failed to check out item');
+                const newCheckout = await response.json();
+                return newCheckout;
+            } catch (error) {
+                console.error('Error checking out item:', error);
+                alert('Failed to check out item. Please try again.');
+                return null;
+            }
+        }
+
+        async function deleteCheckout(checkoutId) {
+            try {
+                const response = await fetch(`${API_BASE}/checkouts/${checkoutId}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('Failed to return item');
+                return true;
+            } catch (error) {
+                console.error('Error returning item:', error);
+                alert('Failed to return item. Please try again.');
+                return false;
+            }
+        }
+
+        // Initialize - Load data from API
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Set today's date as default
+            document.getElementById('checkoutDate').valueAsDate = new Date();
+            
+            // Setup event listeners
+            document.getElementById('searchInput').addEventListener('input', renderAll);
+            document.getElementById('addItemForm').addEventListener('submit', handleAddItem);
+            document.getElementById('checkoutForm').addEventListener('submit', handleCheckout);
+            
+            // Load initial data
+            await Promise.all([fetchItems(), fetchCheckouts()]);
+            renderAll();
+        });
+
+        // Modal functions
+        function showAddItemModal() {
+            document.getElementById('addItemModal').classList.remove('hidden');
+        }
+
+        function closeAddItemModal() {
+            document.getElementById('addItemModal').classList.add('hidden');
+            document.getElementById('addItemForm').reset();
+        }
+
+        function showCheckoutModal() {
+            updateCheckoutSelect();
+            document.getElementById('checkoutModal').classList.remove('hidden');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+            document.getElementById('checkoutForm').reset();
+        }
+
+        // Form handlers
+        async function handleAddItem(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            const itemData = {
+                name: formData.get('name'),
+                category: formData.get('category'),
+                quantity: parseInt(formData.get('quantity'))
+            };
+            
+            const newItem = await addItem(itemData);
+            if (newItem) {
+                await fetchItems();
+                closeAddItemModal();
+                renderAll();
+            }
+        }
+
+        async function handleCheckout(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            const checkoutData = {
+                item_id: parseInt(formData.get('item_id')),
+                borrower: formData.get('borrower'),
+                date: formData.get('date')
+            };
+            
+            const newCheckout = await addCheckout(checkoutData);
+            if (newCheckout) {
+                await fetchCheckouts();
+                closeCheckoutModal();
+                renderAll();
+            }
+        }
+
+        async function handleReturn(checkoutId) {
+            const success = await deleteCheckout(checkoutId);
+            if (success) {
+                await fetchCheckouts();
+                renderAll();
+            }
+        }
+
+        // Helper functions
+        function getAvailableQuantity(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (!item) return 0;
+            const checkedOut = checkouts.filter(c => c.itemId === itemId).length;
+            return item.quantity - checkedOut;
+        }
+
+        function isOverdue(dateString) {
+            const checkoutDate = new Date(dateString);
+            const today = new Date();
+            const daysDiff = Math.floor((today - checkoutDate) / (1000 * 60 * 60 * 24));
+            return daysDiff > OVERDUE_DAYS;
+        }
+
+        function getDaysOverdue(dateString) {
+            const checkoutDate = new Date(dateString);
+            const today = new Date();
+            const daysDiff = Math.floor((today - checkoutDate) / (1000 * 60 * 60 * 24));
+            return daysDiff - OVERDUE_DAYS;
+        }
+
+        function filterData() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filteredItems = items.filter(item => 
+                item.name.toLowerCase().includes(query) ||
+                item.category.toLowerCase().includes(query)
+            );
+            
+            const filteredCheckouts = checkouts.filter(checkout => {
+                const item = items.find(i => i.id === checkout.itemId);
+                return item && (
+                    item.name.toLowerCase().includes(query) ||
+                    item.category.toLowerCase().includes(query) ||
+                    checkout.borrower.toLowerCase().includes(query)
+                );
+            });
+            
+            return { filteredItems, filteredCheckouts };
+        }
+
+        // Render functions
+        function updateCheckoutSelect() {
+            const select = document.getElementById('checkoutItemSelect');
+            select.innerHTML = '<option value="">Choose an item...</option>';
+            
+            items.forEach(item => {
+                const available = getAvailableQuantity(item.id);
+                if (available > 0) {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = `${item.name} (${item.category}) - ${available} available`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        function renderCheckedOut(filteredCheckouts) {
+            const container = document.getElementById('checkedOutList');
+            document.getElementById('checkedOutCount').textContent = filteredCheckouts.length;
+            
+            if (filteredCheckouts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <p>No items currently checked out.</p>
+                        <p class="text-sm mt-2">Use the "Check Out Item" button above to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredCheckouts.map(checkout => {
+                const item = items.find(i => i.id === checkout.itemId);
+                const overdue = isOverdue(checkout.date);
+                const daysOverdue = getDaysOverdue(checkout.date);
+                
+                return `
+                    <div class="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow mb-3 ${overdue ? 'border-red-300 bg-red-50' : 'border-gray-200'}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-medium">${item ? item.name : 'Unknown Item'}</h3>
+                                    ${overdue ? `
+                                        <span class="flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">
+                                            ⚠ ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'} overdue
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">${item ? item.category : ''}</p>
+                                <div class="flex gap-4 mt-3 text-sm text-gray-600">
+                                    <div class="flex items-center gap-1">
+                                        <span>👤 ${checkout.borrower}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span>📅 ${new Date(checkout.date).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="handleReturn(${checkout.id})" 
+                                class="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                ↩ Return
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderInventory(filteredItems) {
+            const container = document.getElementById('inventoryList');
+            
+            if (filteredItems.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-8 text-gray-500">
+                        <p>No items in inventory.</p>
+                        <p class="text-sm mt-2">Use the "Add Item" button above to add your first item.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredItems.map(item => {
+                const available = getAvailableQuantity(item.id);
+                const isLowStock = available > 0 && available <= Math.ceil(item.quantity * LOW_STOCK_PERCENT);
+                const isOutOfStock = available === 0;
+                
+                return `
+                    <div class="bg-white border rounded-lg p-4 ${
+                        isOutOfStock ? 'border-red-300 bg-red-50' :
+                        isLowStock ? 'border-yellow-300 bg-yellow-50' :
+                        'border-gray-200'
+                    }">
+                        <div class="flex items-start gap-3">
+                            <div class="p-2 rounded-lg ${
+                                isOutOfStock ? 'bg-red-100' :
+                                isLowStock ? 'bg-yellow-100' :
+                                'bg-blue-50'
+                            }">
+                                <span class="text-2xl">${
+                                    isOutOfStock ? '📦' :
+                                    isLowStock ? '📦' :
+                                    '📦'
+                                }</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-medium truncate">${item.name}</h3>
+                                    ${(isLowStock || isOutOfStock) ? `<span class="text-red-500">⚠</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-600 mt-0.5">${item.category}</p>
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <span class="text-sm">
+                                        <span class="font-medium ${
+                                            isOutOfStock ? 'text-red-600' :
+                                            isLowStock ? 'text-yellow-600' :
+                                            'text-green-600'
+                                        }">${available}</span>
+                                        <span class="text-gray-500"> / ${item.quantity}</span>
+                                    </span>
+                                    <span class="text-xs text-gray-500">available</span>
+                                    ${isLowStock ? '<span class="text-xs bg-yellow-600 text-white px-2 py-0.5 rounded-full">Low Stock</span>' : ''}
+                                    ${isOutOfStock ? '<span class="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">Out of Stock</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAll() {
+            const { filteredItems, filteredCheckouts } = filterData();
+            renderCheckedOut(filteredCheckouts);
+            renderInventory(filteredItems);
+        }
+    </script>
+</body>
+</html>
