@@ -1,23 +1,32 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from datetime import date
 from typing import List
+
+
 
 from .models import ItemCreate, Item, CheckoutCreate, CheckoutRecord, ReturnRequest
 from .storage import read_items, write_items, read_checkouts, write_checkouts, next_id
 
 app = FastAPI(title="Inventory Lending Tracker API", version="1.0.0")
 
-# Allow frontend later (Sprint 2). Tighten origins if needed.
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # in production set to your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-#new github commands mkdir 
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/api/items", response_model=List[Item])
 def get_items():
@@ -27,7 +36,6 @@ def get_items():
 def add_item(payload: ItemCreate):
     items = read_items()
 
-    # Optional: merge items by (name+category) instead of duplicating
     for it in items:
         if it["name"].strip().lower() == payload.name.strip().lower() and it["category"].strip().lower() == payload.category.strip().lower():
             it["quantity"] += payload.quantity
@@ -61,7 +69,6 @@ def checkout_item(payload: CheckoutCreate):
     if item["quantity"] <= 0:
         raise HTTPException(status_code=400, detail="Item is out of stock (quantity is 0)")
 
-    # Reduce stock by 1 per checkout (simple sprint-1 behavior)
     item["quantity"] -= 1
 
     new_checkout = {
@@ -95,7 +102,6 @@ def return_item(payload: ReturnRequest):
     if not item:
         raise HTTPException(status_code=404, detail="Item for this checkout no longer exists")
 
-    # Mark returned + increment inventory
     checkout["returned"] = True
     checkout["return_date"] = payload.return_date.isoformat()
     item["quantity"] += 1
