@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt flake8 pytest
+
+      - name: Lint
+        run: flake8 4250-Semester-Project/backend/app/
+
+      - name: Smoke import check
+        run: python -m py_compile 4250-Semester-Project/backend/app/*.py
