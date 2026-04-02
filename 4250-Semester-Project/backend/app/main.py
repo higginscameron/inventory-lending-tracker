@@ -7,9 +7,10 @@ from datetime import date
 from typing import List
 
 # Sign On Stuff:
-# cd C:\Users\camer\OneDrive\Documents\4250project\backend
+# cd C:\Users\camer\OneDrive\Documents\4250dummyproject\4250-Semester-Project\4250-Semester-Project\backend
 # python -m uvicorn app.main:app --reload
 # http://127.0.0.1:8000/
+# http://127.0.0.1:8000/docs
 
 from .models import ItemCreate, Item, CheckoutCreate, CheckoutRecord, ReturnRequest
 from .storage import read_items, write_items, read_checkouts, write_checkouts, next_id
