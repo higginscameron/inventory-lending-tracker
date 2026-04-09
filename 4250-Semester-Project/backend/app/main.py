@@ -28,8 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import subprocess
-subprocess.call(input("Enter command: "), shell=True)
 
 @app.get("/", response_class=HTMLResponse)
     """
