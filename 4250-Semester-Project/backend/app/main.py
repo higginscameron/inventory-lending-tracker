@@ -28,7 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     """
@@ -58,8 +57,7 @@ def add_item(payload: ItemCreate):
 
     for it in items:
         if (
-            it["name"].strip().lower() == payload.name.strip().lower()
-            and it["category"].strip().lower() == payload.category.strip().lower()
+            it["name"].strip().lower() == payload.name.strip().lower() and it["category"].strip().lower() == payload.category.strip().lower()
         ):
             it["quantity"] += payload.quantity
             write_items(items)
