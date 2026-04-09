@@ -30,6 +30,7 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
+def home(request: Request):
     """
     Return the HTML template for the homepage.
 
@@ -43,21 +44,23 @@ app.add_middleware(
     HTMLResponse
         The HTML response containing the rendered template.
     """
-def home(request: Request):
-/*************  ✨ Windsurf Command ⭐  *************/
-/*******  beb8c8dc-e23d-4058-bd80-175a010f0eb2  *******/
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.get("/api/items", response_model=List[Item])
 def get_items():
     return read_items()
+
 
 @app.post("/api/items", response_model=Item)
 def add_item(payload: ItemCreate):
     items = read_items()
 
     for it in items:
-        if it["name"].strip().lower() == payload.name.strip().lower() and it["category"].strip().lower() == payload.category.strip().lower():
+        if (
+            it["name"].strip().lower() == payload.name.strip().lower()
+            and it["category"].strip().lower() == payload.category.strip().lower()
+        ):
             it["quantity"] += payload.quantity
             write_items(items)
             return it
@@ -72,10 +75,12 @@ def add_item(payload: ItemCreate):
     write_items(items)
     return new_item
 
+
 @app.get("/api/checkedout", response_model=List[CheckoutRecord])
 def get_checked_out():
     checkouts = read_checkouts()
     return [c for c in checkouts if not c.get("returned", False)]
+
 
 @app.post("/api/checkout", response_model=CheckoutRecord)
 def checkout_item(payload: CheckoutCreate):
@@ -106,6 +111,7 @@ def checkout_item(payload: CheckoutCreate):
     write_checkouts(checkouts)
     return new_checkout
 
+
 @app.post("/api/return", response_model=CheckoutRecord)
 def return_item(payload: ReturnRequest):
     items = read_items()
@@ -129,6 +135,7 @@ def return_item(payload: ReturnRequest):
     write_items(items)
     write_checkouts(checkouts)
     return checkout
+
 
 @app.get("/api/health")
 def health():
