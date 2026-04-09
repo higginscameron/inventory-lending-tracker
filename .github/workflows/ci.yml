@@ -18,10 +18,19 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt flake8 pytest
+        run: pip install -r 4250-Semester-Project/requirements.txt flake8 pytest bandit safety
 
       - name: Lint
         run: flake8 4250-Semester-Project/backend/app/
 
       - name: Smoke import check
         run: python -m py_compile 4250-Semester-Project/backend/app/*.py
+
+      - name: Test
+        run: pytest tests/ -v
+
+      - name: Security scan
+        run: bandit -r 4250-Semester-Project/backend/app/
+
+      - name: Dependency scan
+        run: safety check -r 4250-Semester-Project/requirements.txt
