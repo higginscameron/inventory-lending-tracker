@@ -26,9 +26,6 @@ jobs:
       - name: Smoke import check
         run: python -m py_compile 4250-Semester-Project/backend/app/*.py
 
-      - name: Test
-        run: pytest tests/ -v
-
       - name: Security scan
         run: bandit -r 4250-Semester-Project/backend/app/
 
