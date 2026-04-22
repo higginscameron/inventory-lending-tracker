@@ -11,11 +11,16 @@ from typing import List
 # python -m uvicorn app.main:app --reload
 # http://127.0.0.1:8000/
 # http://127.0.0.1:8000/docs
+# Username: admin Password: password123
+
+
 
 from .models import ItemCreate, Item, CheckoutCreate, CheckoutRecord, ReturnRequest
-from .storage import read_items, write_items, read_checkouts, write_checkouts, next_id
+from .database import init_db, get_connection
 
 app = FastAPI(title="Inventory Lending Tracker API", version="1.0.0")
+
+init_db()
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -28,111 +33,219 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """
-    Return the HTML template for the homepage.
-
-    Parameters
-    ----------
-    request : Request
-        The request object to pass to the template.
-
-    Returns
-    -------
-    HTMLResponse
-        The HTML response containing the rendered template.
-    """
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/api/login")
+def login(payload: dict):
+    username = payload.get("username", "").strip()
+    password = payload.get("password", "").strip()
+
+    if username == "admin" and password == "password123":
+        return {"message": "Login successful"}
+
+    raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
 @app.get("/api/items", response_model=List[Item])
 def get_items():
-    return read_items()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM items ORDER BY id")
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 @app.post("/api/items", response_model=Item)
 def add_item(payload: ItemCreate):
-    items = read_items()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    for it in items:
-        if (
-            it["name"].strip().lower() == payload.name.strip().lower() and it["category"].strip().lower() == payload.category.strip().lower()
-        ):
-            it["quantity"] += payload.quantity
-            write_items(items)
-            return it
+    cur.execute(
+        """
+        SELECT * FROM items
+        WHERE LOWER(name) = LOWER(?) AND LOWER(category) = LOWER(?)
+        """,
+        (payload.name.strip(), payload.category.strip()),
+    )
+    existing = cur.fetchone()
 
-    new_item = {
-        "id": next_id(items),
-        "name": payload.name.strip(),
-        "category": payload.category.strip(),
-        "quantity": payload.quantity,
-    }
-    items.append(new_item)
-    write_items(items)
-    return new_item
+    if existing:
+        new_quantity = existing["quantity"] + payload.quantity
+        cur.execute(
+            "UPDATE items SET quantity = ? WHERE id = ?",
+            (new_quantity, existing["id"]),
+        )
+        conn.commit()
+
+        cur.execute("SELECT * FROM items WHERE id = ?", (existing["id"],))
+        updated = cur.fetchone()
+        conn.close()
+        return dict(updated)
+
+    cur.execute(
+        """
+        INSERT INTO items (name, category, quantity)
+        VALUES (?, ?, ?)
+        """,
+        (payload.name.strip(), payload.category.strip(), payload.quantity),
+    )
+    conn.commit()
+
+    item_id = cur.lastrowid
+    cur.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+    new_item = cur.fetchone()
+    conn.close()
+
+    return dict(new_item)
+
+
+@app.delete("/api/items/{item_id}")
+def delete_item(item_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+    item = cur.fetchone()
+
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    cur.execute(
+        """
+        SELECT * FROM checkouts
+        WHERE item_id = ? AND returned = 0
+        """,
+        (item_id,),
+    )
+    active_checkout = cur.fetchone()
+
+    if active_checkout:
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete an item that is currently checked out",
+        )
+
+    cur.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+
+    return {"message": "Item deleted successfully"}
 
 
 @app.get("/api/checkedout", response_model=List[CheckoutRecord])
 def get_checked_out():
-    checkouts = read_checkouts()
-    return [c for c in checkouts if not c.get("returned", False)]
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM checkouts WHERE returned = 0 ORDER BY id")
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 @app.post("/api/checkout", response_model=CheckoutRecord)
 def checkout_item(payload: CheckoutCreate):
-    items = read_items()
-    checkouts = read_checkouts()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    item = next((i for i in items if i["id"] == payload.item_id), None)
+    cur.execute("SELECT * FROM items WHERE id = ?", (payload.item_id,))
+    item = cur.fetchone()
+
     if not item:
+        conn.close()
         raise HTTPException(status_code=404, detail="Item not found")
 
     if item["quantity"] <= 0:
-        raise HTTPException(status_code=400, detail="Item is out of stock (quantity is 0)")
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail="Item is out of stock (quantity is 0)",
+        )
 
-    item["quantity"] -= 1
+    cur.execute(
+        "UPDATE items SET quantity = quantity - 1 WHERE id = ?",
+        (payload.item_id,),
+    )
 
-    new_checkout = {
-        "id": next_id(checkouts),
-        "item_id": payload.item_id,
-        "borrower": payload.borrower.strip(),
-        "checkout_date": payload.checkout_date.isoformat(),
-        "due_date": payload.due_date.isoformat() if payload.due_date else None,
-        "returned": False,
-        "return_date": None,
-    }
+    cur.execute(
+        """
+        INSERT INTO checkouts (item_id, borrower, checkout_date, due_date, returned, return_date)
+        VALUES (?, ?, ?, ?, 0, NULL)
+        """,
+        (
+            payload.item_id,
+            payload.borrower.strip(),
+            payload.checkout_date.isoformat(),
+            payload.due_date.isoformat() if payload.due_date else None,
+        ),
+    )
+    conn.commit()
 
-    checkouts.append(new_checkout)
-    write_items(items)
-    write_checkouts(checkouts)
-    return new_checkout
+    checkout_id = cur.lastrowid
+    cur.execute("SELECT * FROM checkouts WHERE id = ?", (checkout_id,))
+    new_checkout = cur.fetchone()
+    conn.close()
+
+    return dict(new_checkout)
 
 
 @app.post("/api/return", response_model=CheckoutRecord)
 def return_item(payload: ReturnRequest):
-    items = read_items()
-    checkouts = read_checkouts()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    checkout = next((c for c in checkouts if c["id"] == payload.checkout_id), None)
+    cur.execute("SELECT * FROM checkouts WHERE id = ?", (payload.checkout_id,))
+    checkout = cur.fetchone()
+
     if not checkout:
+        conn.close()
         raise HTTPException(status_code=404, detail="Checkout record not found")
 
-    if checkout.get("returned", False):
+    if checkout["returned"]:
+        conn.close()
         raise HTTPException(status_code=400, detail="Item already returned")
 
-    item = next((i for i in items if i["id"] == checkout["item_id"]), None)
+    cur.execute("SELECT * FROM items WHERE id = ?", (checkout["item_id"],))
+    item = cur.fetchone()
+
     if not item:
-        raise HTTPException(status_code=404, detail="Item for this checkout no longer exists")
+        conn.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Item for this checkout no longer exists",
+        )
 
-    checkout["returned"] = True
-    checkout["return_date"] = payload.return_date.isoformat()
-    item["quantity"] += 1
+    cur.execute(
+        """
+        UPDATE checkouts
+        SET returned = 1, return_date = ?
+        WHERE id = ?
+        """,
+        (payload.return_date.isoformat(), payload.checkout_id),
+    )
 
-    write_items(items)
-    write_checkouts(checkouts)
-    return checkout
+    cur.execute(
+        """
+        UPDATE items
+        SET quantity = quantity + 1
+        WHERE id = ?
+        """,
+        (checkout["item_id"],),
+    )
+
+    conn.commit()
+
+    cur.execute("SELECT * FROM checkouts WHERE id = ?", (payload.checkout_id,))
+    updated_checkout = cur.fetchone()
+    conn.close()
+
+    return dict(updated_checkout)
 
 
 @app.get("/api/health")
